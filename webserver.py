@@ -2,31 +2,7 @@
 #self.path es mi url
 #ul=unlimited list
 #https://github.com/tylucaskelley/licenser/blob/master/LICENSE
-
-#MIT License
-
-#Copyright (c) 2017 Sandra Montejano <nsand77@hotmail.com>
-
-#Permission is hereby granted, free of charge, to any person obtaining a copy
-#of this software and associated documentation files (the "Software"), to deal
-#in the Software without restriction, including without limitation the rights
-#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#copies of the Software, and to permit persons to whom the Software is
-#furnished to do so, subject to the following conditions:
-
-#The above copyright notice and this permission notice shall be included in all
-#copies or substantial portions of the Software.
-
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-#SOFTWARE.
-
-    #Contact GitHub API Training Shop Blog About
-
+#accion parecida a recieve: atribute
 
 import http.server
 import http.client
@@ -45,14 +21,26 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 	    </head>
 	    <body>
 	        <h1>OpenFDA Client</h1>
-	        <form method="get" action="recieve">
+			</form>
+			<form method="get" action="recievecompany">
+				<input type="submit" value="Company List: Send to OpenFDA">
+				</input>
+			</form>
+	        <form method="get" action="recievedrugs">
 	            <input type="submit" value="Drug List: Send to OpenFDA">
 	            </input>
 	        </form>
-            <form method="get" action="search">
-				<input typye="text" name="drug"></input>
-                <input type="submit" value="Drug Search LYRICA: Send to OpendFDA">
-            </form>
+			<form method="get"action="searchcompany">
+				<input type="text" name="company">
+				</input>
+				<input type="submit" value="Company Search:Send to OpenFDA"
+				</input>
+			</form>
+            <form method="get" action="searchdrugs">
+				<input type="text" name="drug">
+				</input>
+                <input type="submit" value="Drug Search: Send to OpendFDA">
+				</input>
 	    </body>
 	    </html>
 	    '''
@@ -71,18 +59,19 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 		<html>
 			<head>
 				<title> OpenFDA Cool App</title>
-				</head>
+			</head>
 			<body>
 				<ul>
-			'''
+		'''
 		for drug in drugs:
-			drugs_html+="<li>"+drug+"</li>\n"
+			drugs_html+="<li>"+drug+"</li>"
 		drugs_html+= '''
 				</ul>
 			</body>
 		</html>
 		'''
 		return drugs_html
+
 
 
     # GET EVENT
@@ -102,28 +91,45 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 		events = data1.decode("utf8")
 		return events
 
+	def get_any_company(self,company):
+		conn = http.client.HTTPSConnection(self.OPENFDA_API_URL)
+		conn.request('GET',self.OPENFDA_API_EVENT +'?search='+company+'&limit=10')
+		r1 = conn.getresponse()
+		data1 = r1.read()
+		events = data1.decode("utf8")
+		return events
+
 	def get_companies_from_events(self,events):
 		companies=[]
 		for event in events:
 			companies+=[event['companynumb']]
 		return companies
 
+	#def get_company_list(self,events):
+		#company=[]
+		#for event in events:
+			#company+=[event['companynumb']]
+		#return company
 
     # GET
 	def do_GET(self):
 		main_page=False
 		is_event=False
-		is_search=False
-
+		search_drugs=False
+		search_company=False
+		company_event=False
 
 		if self.path=='/':
 			main_page=True
-		elif self.path=="/recieve" or self.path=="/recieve?":
+		elif self.path=="/recievecompany" or self.path=="/recievecompany?":
+			company_event=True
+		elif self.path=="/recievedrugs" or self.path=="/recievedrugs?":
 			is_event=True
-		elif "/search?" in self.path:
-			is_search=True
-
-        #print(self.path) con esto elegimos entre evento o html
+		elif "/searchdrugs?" in self.path:
+			search_drugs=True
+		elif "/searchcompany?" in self.path:
+			search_company=True
+		#print(self.path) con esto elegimos entre evento o html
         # Send response status code
 		self.send_response(200)
 
@@ -147,11 +153,28 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 			#	print (events[i])
 			self.wfile.write(bytes(html, "utf8"))
 
-		elif is_search:
+		elif search_company:
+			company=self.path.split("=")[1]
+			event_str=self.get_any_company(company)
+			events=json.loads(event_str)
+			events=events["results"]
+			search=self.get_drugs_from_events(events)
+			html=self.get_list_html(search)
+			self.wfile.write(bytes(html, "utf8"))
+
+		elif search_drugs:
 			drug=self.path.split("=")[1]
 			drugs=self.get_any_drug(drug)
 			events=json.loads(drugs)
 			events=events["results"]
 			search=self.get_companies_from_events(events)
 			html=self.get_list_html(search)
+			self.wfile.write(bytes(html, "utf8"))
+
+		elif company_event:
+			events_str=self.get_events()
+			events=json.loads(events_str)
+			events=events["results"]
+			companies=self.get_companies_from_events(events)
+			html=self.get_list_html(companies)
 			self.wfile.write(bytes(html, "utf8"))
